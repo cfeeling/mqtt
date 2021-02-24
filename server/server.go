@@ -4,6 +4,7 @@ package server
 import (
 	"errors"
 	"fmt"
+	"github.com/mochi-co/mqtt/server/history"
 	"net"
 	"strconv"
 	"sync/atomic"
@@ -47,14 +48,15 @@ var (
 // Server is an MQTT broker server. It should be created with server.New()
 // in order to ensure all the internal fields are correctly populated.
 type Server struct {
-	done      chan bool            // indicate that the server is ending.
-	bytepool  circ.BytesPool       // a byte pool for incoming and outgoing packets.
-	Listeners *listeners.Listeners // listeners are network interfaces which listen for new connections.
-	Clients   *clients.Clients     // clients which are known to the broker.
-	Topics    *topics.Index        // an index of topic filter subscriptions and retained messages.
-	System    *system.Info         // values about the server commonly found in $SYS topics.
-	Store     persistence.Store    // a persistent storage backend if desired.
-	sysTicker *time.Ticker         // the interval ticker for sending updating $SYS topics.
+	done          chan bool            // indicate that the server is ending.
+	bytepool      circ.BytesPool       // a byte pool for incoming and outgoing packets.
+	Listeners     *listeners.Listeners // listeners are network interfaces which listen for new connections.
+	Clients       *clients.Clients     // clients which are known to the broker.
+	Topics        *topics.Index        // an index of topic filter subscriptions and retained messages.
+	System        *system.Info         // values about the server commonly found in $SYS topics.
+	Store         persistence.Store    // a persistent storage backend if desired.
+	sysTicker     *time.Ticker         // the interval ticker for sending updating $SYS topics.
+	historyWriter []history.LogWriter  // 消息日志跟踪
 }
 
 // New returns a new instance of an MQTT broker.
@@ -68,7 +70,8 @@ func New() *Server {
 			Version: Version,
 			Started: time.Now().Unix(),
 		},
-		sysTicker: time.NewTicker(SysTopicInterval * time.Millisecond),
+		sysTicker:     time.NewTicker(SysTopicInterval * time.Millisecond),
+		historyWriter: make([]history.LogWriter, 0),
 	}
 
 	// Expose server stats using the system listener so it can be used in the
@@ -87,6 +90,11 @@ func (s *Server) AddStore(p persistence.Store) error {
 		return err
 	}
 
+	return nil
+}
+
+func (s *Server) AddHistoryWriter(h history.LogWriter) error {
+	s.historyWriter = append(s.historyWriter, h)
 	return nil
 }
 
@@ -336,8 +344,16 @@ func (s *Server) processPublish(cl *clients.Client, pk packets.Packet) error {
 		return nil
 	}
 
+	out := pk.PublishCopy()
+	historyLogInfo := history.LogMessage{
+		Header:  persistence.FixedHeader(out.FixedHeader),
+		Payload: out.Payload,
+	}
+	for _, historyWriter := range s.historyWriter {
+		go historyWriter.Write(historyLogInfo)
+	}
+
 	if pk.FixedHeader.Retain {
-		out := pk.PublishCopy()
 		q := s.Topics.RetainMessage(out)
 		atomic.AddInt64(&s.System.Retained, q)
 		if s.Store != nil {
