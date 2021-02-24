@@ -1,4 +1,4 @@
-module github.com/mochi-co/mqtt
+module github.com/cfeeling/mqtt
 
 go 1.13
 
