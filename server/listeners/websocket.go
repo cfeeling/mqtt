@@ -12,8 +12,8 @@ import (
 
 	"github.com/gorilla/websocket"
 
-	"github.com/mochi-co/mqtt/server/listeners/auth"
-	"github.com/mochi-co/mqtt/server/system"
+	"github.com/cfeeling/mqtt/server/listeners/auth"
+	"github.com/cfeeling/mqtt/server/system"
 )
 
 var (

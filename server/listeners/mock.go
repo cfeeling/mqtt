@@ -6,8 +6,8 @@ import (
 	"net"
 	"sync"
 
-	"github.com/mochi-co/mqtt/server/listeners/auth"
-	"github.com/mochi-co/mqtt/server/system"
+	"github.com/cfeeling/mqtt/server/listeners/auth"
+	"github.com/cfeeling/mqtt/server/system"
 )
 
 // MockCloser is a function signature which can be used in testing.

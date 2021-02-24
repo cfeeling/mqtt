@@ -1,6 +1,6 @@
 package history
 
-import "github.com/mochi-co/mqtt/server/persistence"
+import "github.com/cfeeling/mqtt/server/persistence"
 
 type LogMessage struct {
 	Header  persistence.FixedHeader

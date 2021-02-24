@@ -10,7 +10,7 @@ import (
 
 	"github.com/gorilla/websocket"
 
-	"github.com/mochi-co/mqtt/server/listeners/auth"
+	"github.com/cfeeling/mqtt/server/listeners/auth"
 	"github.com/stretchr/testify/require"
 )
 
