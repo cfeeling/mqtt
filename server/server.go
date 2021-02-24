@@ -346,6 +346,7 @@ func (s *Server) processPublish(cl *clients.Client, pk packets.Packet) error {
 
 	out := pk.PublishCopy()
 	historyLogInfo := history.LogMessage{
+		Topic:   out.TopicName,
 		Header:  persistence.FixedHeader(out.FixedHeader),
 		Payload: out.Payload,
 	}
