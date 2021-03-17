@@ -813,3 +813,56 @@ func (s *Server) loadRetained(v []persistence.Message) {
 		})
 	}
 }
+
+// Internal publishing without client
+
+func (s *Server) InlinePublish(pk packets.Packet) error {
+	switch pk.FixedHeader.Type {
+	case packets.Publish:
+		r, err := pk.PublishValidate()
+		if r != packets.Accepted {
+			return err
+		}
+		return s.processInlinePublish(pk)
+	}
+	return nil
+}
+
+func (s *Server) processInlinePublish(pk packets.Packet) error {
+	if len(pk.TopicName) >= 4 && pk.TopicName[0:4] == "$SYS" {
+		// Clients can't publish to $SYS topics.
+		return nil
+	}
+
+	out := pk.PublishCopy()
+	historyLogInfo := history.LogMessage{
+		Topic:   out.TopicName,
+		Header:  persistence.FixedHeader(out.FixedHeader),
+		Payload: out.Payload,
+	}
+	for _, historyWriter := range s.historyWriter {
+		go historyWriter.Write(historyLogInfo)
+	}
+
+	if pk.FixedHeader.Retain {
+		q := s.Topics.RetainMessage(out)
+		atomic.AddInt64(&s.System.Retained, q)
+		if s.Store != nil {
+			if q == 1 {
+				s.Store.WriteRetained(persistence.Message{
+					ID:          "ret_" + out.TopicName,
+					T:           persistence.KRetained,
+					FixedHeader: persistence.FixedHeader(out.FixedHeader),
+					TopicName:   out.TopicName,
+					Payload:     out.Payload,
+				})
+			} else {
+				s.Store.DeleteRetained("ret_" + out.TopicName)
+			}
+		}
+	}
+
+	s.publishToSubscribers(pk)
+
+	return nil
+}
