@@ -816,16 +816,20 @@ func (s *Server) loadRetained(v []persistence.Message) {
 
 // Internal publishing without client
 
-func (s *Server) InlinePublish(pk packets.Packet) error {
-	switch pk.FixedHeader.Type {
-	case packets.Publish:
-		r, err := pk.PublishValidate()
-		if r != packets.Accepted {
-			return err
-		}
-		return s.processInlinePublish(pk)
+func (s *Server) InlinePublish(topic string, msg []byte) error {
+	publishPack := packets.Packet{
+		FixedHeader: packets.FixedHeader{
+			Type:   packets.Publish,
+			Retain: false,
+		},
+		TopicName: topic,
+		Payload:   msg,
 	}
-	return nil
+	r, err := publishPack.PublishValidate()
+	if r != packets.Accepted {
+		return err
+	}
+	return s.processInlinePublish(publishPack)
 }
 
 func (s *Server) processInlinePublish(pk packets.Packet) error {
